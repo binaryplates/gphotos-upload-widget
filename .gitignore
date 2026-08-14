@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.snap
+parts/
+stage/
+prime/
+overlay/
+.craft/
+venv/
+*.egg-info/
+build/
+dist/

@@ -1,0 +1,17 @@
+[Unit]
+Description=Selected folder upload to Google Photos
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__APP_DIR__/backend
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 __APP_DIR__/backend/gphotos_upload_worker.py
+Restart=on-failure
+RestartSec=120
+TimeoutStopSec=45
+KillMode=mixed
+
+[Install]
+WantedBy=default.target

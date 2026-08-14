@@ -1,0 +1,144 @@
+.gphotos-upload-header-row {
+  spacing: 9px;
+  padding: 5px 5px 9px 5px;
+  min-width: 259px;
+}
+
+.gphotos-upload-header-spacer {
+  width: 28px;
+}
+
+.gphotos-upload-title {
+  font-weight: bold;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.gphotos-upload-icon-btn {
+  border-radius: 10px;
+  padding: 5px;
+}
+.gphotos-upload-icon-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+.gphotos-upload-icon-btn-icon {
+  icon-size: 18px;
+}
+
+.gphotos-upload-refresh-wrap {
+  padding-top: 7px;
+}
+
+.gphotos-upload-toggle-btn {
+  min-width: 138px;
+  padding: 14px 28px;
+  border-radius: 28px;
+  font-weight: bold;
+  font-size: 16px;
+  color: white;
+}
+.gphotos-upload-toggle-btn.gphotos-upload-off {
+  background-color: rgba(90, 94, 102, 0.45);
+}
+.gphotos-upload-toggle-btn.gphotos-upload-on {
+  background-color: rgba(46, 139, 138, 0.82);
+}
+
+.gphotos-upload-status-line {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  padding-top: 7px;
+}
+
+.gphotos-upload-section-head {
+  font-weight: bold;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 12px 5px 5px 5px;
+}
+
+.gphotos-upload-chip-row {
+  spacing: 6px;
+  padding: 2px 5px;
+}
+
+.gphotos-upload-chip {
+  border-radius: 17px;
+  padding: 6px 9px;
+  background-color: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+}
+.gphotos-upload-chip:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+.gphotos-upload-chip-active {
+  background-color: rgba(46, 139, 138, 0.82);
+  color: white;
+}
+
+.gphotos-upload-hero-row {
+  spacing: 28px;
+  padding: 9px 5px;
+}
+.gphotos-upload-hero-value {
+  font-size: 30px;
+  font-weight: bold;
+}
+.gphotos-upload-hero-caption {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.gphotos-upload-rate-badge {
+  font-size: 17px;
+  font-weight: bold;
+  padding-bottom: 2px;
+}
+.gphotos-upload-speed-text {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.gphotos-upload-rate-stalled { color: rgba(255, 255, 255, 0.4); }
+.gphotos-upload-rate-wait { color: #d8efe8; }
+.gphotos-upload-rate-bad { color: #ef5f6a; }
+.gphotos-upload-rate-poor { color: #f08a4b; }
+.gphotos-upload-rate-fair { color: #e8c36d; }
+.gphotos-upload-rate-good { color: #8bd4a0; }
+.gphotos-upload-rate-excellent { color: #6ee7c5; }
+
+.gphotos-upload-grid {
+  padding: 0 5px;
+}
+.gphotos-upload-grid-head {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+  padding-bottom: 2px;
+}
+.gphotos-upload-grid-row {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.gphotos-upload-summary-box {
+  padding: 2px 5px 9px 5px;
+  spacing: 5px;
+}
+.gphotos-upload-summary-row {
+  spacing: 12px;
+  font-size: 14px;
+}
+.gphotos-upload-summary-key {
+  color: rgba(255, 255, 255, 0.55);
+  min-width: 161px;
+}
+.gphotos-upload-summary-val {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.gphotos-upload-error {
+  color: #e8b86d;
+  font-size: 14px;
+  padding: 5px 5px 9px 5px;
+}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Google Photos Upload
+Comment=Upload selected folders to Google Photos
+Exec=gphotos-upload-widget
+Icon=gphotos-upload-widget
+Terminal=false
+Type=Application
+Categories=Utility;Network;
+X-GNOME-Autostart-Notify=false

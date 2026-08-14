@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="gphotos-upload">
+  <schema path="/org/gnome/shell/extensions/gphotos-upload/" id="org.gnome.shell.extensions.gphotos-upload">
+    <key name="refresh-seconds" type="i">
+      <default>5</default>
+      <summary>Refresh interval in seconds</summary>
+    </key>
+  </schema>
+</schemalist>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.gphotos.upload.widget</id>
+  <name>Google Photos Upload</name>
+  <summary>Tray flyout for uploading selected folders to Google Photos</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="net.blazorplate.binaryplates">
+    <name>BinaryPlates</name>
+  </developer>
+  <developer_name>BinaryPlates</developer_name>
+  <update_contact>mohammad.mustafa@blazorplate.net</update_contact>
+  <url type="homepage">https://blazorplate.net</url>
+  <url type="bugtracker">https://snapcraft.io/gphotos-upload-widget</url>
+  <description>
+    <p>
+      Problem: Uploading photo and video folders from Ubuntu to Google Photos
+      is awkward when each folder belongs in a specific album. Command-line
+      uploads make it hard to see what is finished, whether Google is still
+      processing a batch, when the daily quota will reset, or how to stop one
+      source without losing track of the rest.
+    </p>
+    <p>
+      Solution: Google Photos Upload puts the upload workflow in one
+      system-tray flyout. Map selected folders to Google Photos albums, track
+      progress and transfer speed, monitor quota state, and pause, resume,
+      cancel, or retry individual sources. It uploads through rclone and keeps
+      credentials and source configuration under your control. Built by
+      BinaryPlates (Mohammad Mustafa) for Ubuntu desktops.
+    </p>
+  </description>
+  <launchable type="desktop-id">org.gphotos.upload.widget.desktop</launchable>
+  <provides>
+    <binary>gphotos-upload-widget</binary>
+  </provides>
+  <content_rating type="oars-1.1"/>
+</component>

@@ -1,0 +1,151 @@
+name: gphotos-upload-widget
+base: core26
+version: "1.0.3"
+title: Google Photos Upload
+summary: Tray flyout for uploading selected folders to Google Photos
+description: |
+  Problem
+
+  Uploading photo and video folders from Ubuntu to Google Photos is awkward
+  when each folder belongs in a specific album. Command-line uploads make it
+  hard to see what is finished, whether Google is still processing a batch,
+  when the daily quota will reset, or how to stop one source without losing
+  track of the rest.
+
+  Solution
+
+  Google Photos Upload puts the upload workflow in one system-tray flyout.
+  Map selected folders to Google Photos albums, track progress and transfer
+  speed, monitor quota state, and pause, resume, cancel, or retry individual
+  sources. It uploads through rclone and keeps credentials and source
+  configuration under your control. Built by BinaryPlates (Mohammad Mustafa)
+  for Ubuntu desktops.
+
+  https://blazorplate.net
+grade: stable
+confinement: strict
+license: MIT
+contact: https://snapcraft.io/publisher/mohammad-mustafa-1986
+issues: https://snapcraft.io/gphotos-upload-widget
+website: https://blazorplate.net
+icon: icons/hicolor/48x48/apps/gphotos-upload-widget.png
+
+platforms:
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+
+apps:
+  gphotos-upload-widget:
+    command: bin/gphotos-upload-widget
+    desktop: share/applications/org.gphotos.upload.widget.desktop
+    common-id: org.gphotos.upload.widget
+    plugs:
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - unity7
+      - gsettings
+      - home
+      - network
+    environment:
+      GDK_BACKEND: x11
+      GSK_RENDERER: cairo
+      PYTHONPATH: $SNAP/share/gphotos-upload-widget:$SNAP/usr/lib/python3/dist-packages
+      GI_TYPELIB_PATH: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/girepository-1.0
+      LD_LIBRARY_PATH: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR:$SNAP/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR
+      XDG_DATA_DIRS: $SNAP/usr/share:$SNAP/share:/usr/share
+      PATH: $SNAP/bin:$SNAP/usr/bin:/usr/bin:/bin
+
+parts:
+  python-runtime:
+    plugin: nil
+    stage-packages:
+      - libpython3.14-minimal
+      - libpython3.14-stdlib
+      - python3-minimal
+      - python3.14-minimal
+
+  gphotos-upload-widget:
+    after: [python-runtime]
+    plugin: nil
+    source: .
+    stage-packages:
+      - python3-gi
+      - python3-gi-cairo
+      - python3-cairo
+      - gir1.2-gtk-4.0
+      - gir1.2-glib-2.0
+      - gir1.2-gdkpixbuf-2.0
+      - gir1.2-graphene-1.0
+      - gir1.2-harfbuzz-0.0
+      - gir1.2-pango-1.0
+      - libgtk-4-1
+    override-build: |
+      set -euo pipefail
+      I="$CRAFT_PART_INSTALL"
+      S="$CRAFT_PART_SRC"
+      mkdir -p "$I/bin" "$I/share/gphotos-upload-widget" "$I/share/applications" "$I/share/metainfo"
+      # rclone is a runtime executable, not a credential store. Copy the
+      # audited host binary because the Ubuntu archive package may require ESM.
+      install -m 0755 /usr/bin/rclone "$I/bin/rclone"
+      cp "$S/gphotos_upload_common.py" "$S/gphotos_upload_widget.py" "$S/gphotos_upload_worker.py" "$S/tray_sni.py" \
+        "$I/share/gphotos-upload-widget/"
+      cp -a "$S/icons" "$I/share/gphotos-upload-widget/icons"
+      cp "$S/packaging/org.gphotos.upload.widget.desktop" "$I/share/applications/"
+      cp "$S/packaging/org.gphotos.upload.widget.metainfo.xml" "$I/share/metainfo/"
+      if [ -x /usr/bin/xprop ]; then
+        install -m 0755 /usr/bin/xprop "$I/bin/xprop"
+      fi
+      cat > "$I/bin/gphotos-upload-widget" <<'EOF'
+      #!/bin/sh
+      unset DESKTOP_STARTUP_ID
+      export GDK_BACKEND="${GDK_BACKEND:-x11}"
+      export GSK_RENDERER="${GSK_RENDERER:-cairo}"
+      PY="$SNAP/usr/bin/python3"
+      [ -x "$PY" ] || PY="$SNAP/usr/bin/python3.14"
+      [ -x "$PY" ] || PY="/usr/bin/python3"
+      exec "$PY" "$SNAP/share/gphotos-upload-widget/gphotos_upload_widget.py" "$@"
+      EOF
+      chmod 0755 "$I/bin/gphotos-upload-widget"
+      sed -i 's|^Exec=.*|Exec=gphotos-upload-widget|' "$I/share/applications/org.gphotos.upload.widget.desktop"
+    override-prime: |
+      craftctl default
+      P="${CRAFT_PRIME}"
+      rm -rf \
+        "$P/usr/lib/"*/dri \
+        "$P/usr/lib/"*/vdpau \
+        "$P/usr/lib/"*/libLLVM* \
+        "$P/usr/lib/"*/libgallium* \
+        "$P/usr/lib/"*/libVkLayer* \
+        "$P/usr/lib/"*/gstreamer-1.0 \
+        "$P/usr/share/locale" \
+        "$P/usr/share/doc" \
+        "$P/usr/share/man" \
+        "$P/usr/share/lintian" \
+        "$P/usr/share/bug" \
+        "$P/usr/share/icons/Adwaita" \
+        "$P/usr/share/fonts" \
+        "$P/usr/share/iso-codes" \
+        "$P/usr/share/xml" \
+        "$P/usr/share/gtk-4.0/emoji" \
+        "$P/usr/lib/python3.14/test" \
+        "$P/usr/lib/python3.14/idlelib" \
+        "$P/usr/lib/python3.14/turtledemo" \
+        "$P/usr/lib/python3.14/ensurepip" \
+        "$P/usr/lib/python3.14/pydoc_data" \
+        "$P/usr/lib/valgrind"
+      rm -f \
+        "$P/usr/lib/"*/libaom.so* \
+        "$P/usr/lib/"*/libjxl*.so* \
+        "$P/usr/lib/"*/libheif.so* \
+        "$P/usr/lib/"*/libhwy*.so* \
+        "$P/usr/bin/pydoc"* \
+        "$P/usr/bin/pygettext"* \
+        "$P/usr/bin/2to3"* || true
+
+lint:
+  ignore:
+    - library
+    - gpu
