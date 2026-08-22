@@ -1,5 +1,7 @@
 import GLib from 'gi://GLib';
 
+import { DEPENDENCY_ERROR } from './messages.js';
+
 const VENV_SERVICE = GLib.build_filenamev([
     GLib.get_home_dir(),
     '.local',
@@ -20,6 +22,6 @@ export async function ensureBackend() {
 
     return {
         ok: false,
-        error: 'Install gphotos-upload-backend first: clone the GitHub repo and run scripts/install-backend.sh once.',
+        error: DEPENDENCY_ERROR,
     };
 }

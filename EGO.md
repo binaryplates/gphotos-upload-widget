@@ -4,17 +4,11 @@ Build zip: `./scripts/ego-pack.sh` → `dist/ego/<uuid>-v<version>.zip`
 
 Upload at https://extensions.gnome.org/upload
 
-## Dependency (not in the EGO zip)
+## End-user install docs
 
-The extension package does **not** include `backend/`. Install the upload service once from GitHub:
+Point users to **[INSTALL.md](INSTALL.md)** in the repo (linked from EGO via metadata `url`).
 
-```bash
-git clone https://github.com/binaryplates/gphotos-upload-widget.git
-cd gphotos-upload-widget
-./scripts/install-backend.sh
-```
-
-This pip-installs the D-Bus service, writes user systemd units, and starts the upload worker.
+EGO description should mention: extension first, then `scripts/install-backend.sh` from GitHub, plus rclone.
 
 ## Review reply (74277)
 
