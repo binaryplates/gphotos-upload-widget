@@ -17,10 +17,6 @@ trap 'rm -rf "$STAGE"' EXIT
 
 cp -a "$SRC"/. "$STAGE/"
 rm -rf "$STAGE/backend"
-cp -a "$REPO_ROOT/backend/." "$STAGE/backend/"
-install -m 0755 "$SRC/backend/run-setup.sh" "$STAGE/backend/run-setup.sh"
-rm -rf "$STAGE/backend/build" "$STAGE/backend/"*.egg-info "$STAGE/backend/**/__pycache__" 2>/dev/null || true
-find "$STAGE/backend" -type d -name '__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
 glib-compile-schemas "$STAGE/schemas"
 
 (

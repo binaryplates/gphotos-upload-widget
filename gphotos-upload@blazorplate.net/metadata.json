@@ -1,10 +1,10 @@
 {
   "uuid": "gphotos-upload@blazorplate.net",
   "name": "Photos Upload",
-  "description": "Toggle Google Photos folder uploads, watch live progress/speed, and check Drive/API quota from the panel. Background upload service installs automatically when the extension is enabled.",
+  "description": "Toggle Google Photos folder uploads, watch live progress/speed, and check Drive/API quota from the panel. Requires the gphotos-upload backend from the GitHub repo (scripts/install-backend.sh).",
   "settings-schema": "org.gnome.shell.extensions.gphotos-upload",
   "gettext-domain": "gphotos-upload",
   "shell-version": ["50"],
   "url": "https://github.com/binaryplates/gphotos-upload-widget",
-  "version": 6
+  "version": 7
 }

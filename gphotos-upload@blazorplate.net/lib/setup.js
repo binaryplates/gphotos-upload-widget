@@ -1,27 +1,25 @@
-import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async', 'communicate_utf8_finish');
-Gio._promisify(Gio.Subprocess.prototype, 'wait_async', 'wait_finish');
+const VENV_SERVICE = GLib.build_filenamev([
+    GLib.get_home_dir(),
+    '.local',
+    'share',
+    'gphotos-upload-widget',
+    'venv',
+    'bin',
+    'gphotos-upload-service',
+]);
 
-export async function ensureBackend(extension) {
-    const extensionPath = extension.path;
-    const setupScript = GLib.build_filenamev([extensionPath, 'backend', 'run-setup.sh']);
+export function isBackendInstalled() {
+    return GLib.file_test(VENV_SERVICE, GLib.FileTest.IS_EXECUTABLE);
+}
 
-    if (!GLib.file_test(setupScript, GLib.FileTest.IS_EXECUTABLE))
-        return { ok: false, error: 'Extension setup script is missing.' };
-
-    try {
-        const proc = Gio.Subprocess.new(
-            ['/bin/bash', setupScript, extensionPath],
-            Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
-        );
-        const [, stderr] = await proc.communicate_utf8_async(null, null);
-        await proc.wait_async(null);
-        if (!proc.get_successful())
-            return { ok: false, error: (stderr || 'Background setup failed.').trim() };
+export async function ensureBackend() {
+    if (isBackendInstalled())
         return { ok: true };
-    } catch (e) {
-        return { ok: false, error: e.message };
-    }
+
+    return {
+        ok: false,
+        error: 'Install gphotos-upload-backend first: clone the GitHub repo and run scripts/install-backend.sh once.',
+    };
 }

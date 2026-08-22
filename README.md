@@ -6,11 +6,15 @@ checking Drive/API quota — all from one dropdown.
 
 ## Install
 
-Install from **Extension Manager** or [extensions.gnome.org](https://extensions.gnome.org) and enable the extension.
+Install the extension from **Extension Manager** or [extensions.gnome.org](https://extensions.gnome.org), then install the backend once from GitHub:
 
-The upload service and systemd units are installed **automatically** when the extension is enabled. Configure rclone remotes in Settings after install.
+```bash
+git clone https://github.com/binaryplates/gphotos-upload-widget.git
+cd gphotos-upload-widget
+./scripts/install-backend.sh
+```
 
-Developers can still use `scripts/install.sh` to deploy from a git checkout.
+Or run `./scripts/install.sh` from a git checkout to install both the backend and the extension.
 
 On Wayland, a brand-new extension may need one log out/in before the panel icon appears.
 

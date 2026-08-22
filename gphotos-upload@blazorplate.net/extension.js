@@ -7,11 +7,11 @@ export default class GPhotosUploadExtension extends Extension {
     enable() {
         this._indicator = new GPhotosUploadIndicator(this);
         Main.panel.addToStatusArea(this.uuid, this._indicator);
-        ensureBackend(this).then(result => {
+        ensureBackend().then(result => {
             if (!result.ok) {
                 Main.notify(
                     'Photos Upload',
-                    result.error || 'Background upload service could not be installed.',
+                    result.error || 'Install gphotos-upload-backend from GitHub (scripts/install-backend.sh).',
                 );
             }
         });

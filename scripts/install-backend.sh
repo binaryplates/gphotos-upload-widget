@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
-# User-level backend install for Photos Upload. Invoked from extension enable().
+# User-level backend install for Photos Upload (EGO dependency).
 set -euo pipefail
 
-EXT_ROOT="${1:?extension root required}"
-BACKEND="$EXT_ROOT/backend"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+BACKEND="$REPO_ROOT/backend"
 HOME_DIR="${HOME:?}"
 VENV="$HOME_DIR/.local/share/gphotos-upload-widget/venv"
 STAMP="$HOME_DIR/.local/share/gphotos-upload-widget/setup-stamp"
 DBUS_DIR="$HOME_DIR/.local/share/dbus-1/services"
 SYSTEMD_DIR="$HOME_DIR/.config/systemd/user"
-VERSION="$(python3 -c "import json; print(json.load(open('$EXT_ROOT/metadata.json'))['version'])")"
+VERSION="$(python3 -c "import tomllib; print(tomllib.load(open('$BACKEND/pyproject.toml','rb'))['project']['version'])")"
 
 if [[ ! -f "$BACKEND/pyproject.toml" ]]; then
-  echo "backend missing under $EXT_ROOT" >&2
+  echo "backend missing under $REPO_ROOT" >&2
   exit 2
 fi
 
-if [[ -f "$STAMP" ]] && [[ "$(cat "$STAMP")" == "$(printf '%s\n%s\n' "$EXT_ROOT" "$VERSION")" ]]; then
+if [[ -f "$STAMP" ]] && [[ "$(cat "$STAMP")" == "$VERSION" ]]; then
   exit 0
 fi
 
@@ -71,4 +72,5 @@ systemctl --user enable rclone-gphotos.service >/dev/null
 
 nohup "$VENV/bin/gphotos-upload-service" >/dev/null 2>&1 &
 
-printf '%s\n%s\n' "$EXT_ROOT" "$VERSION" > "$STAMP"
+printf '%s\n' "$VERSION" > "$STAMP"
+echo "Installed gphotos-upload backend $VERSION"
