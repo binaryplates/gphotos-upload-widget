@@ -18,6 +18,10 @@ API_CACHE_PATH = APP_CONFIG_DIR / "api-cache.json"
 UPLOAD_LOG_PATH = APP_CONFIG_DIR / "upload.log"
 UPLOAD_STATUS_PATH = APP_CONFIG_DIR / "upload.status"
 UPLOAD_LOCK_PATH = APP_CONFIG_DIR / "upload.lock"
+DATEFIX_STATUS_PATH = APP_CONFIG_DIR / "datefix.status"
+DATEFIX_REQUEST_PATH = APP_CONFIG_DIR / "datefix.request"
+DATEFIX_LOG_PATH = APP_CONFIG_DIR / "datefix.log"
+DATEFIX_ORIGINALS_LOG_PATH = APP_CONFIG_DIR / "datefix-originals.jsonl"
 
 PRIVATE_FILE_MODE = 0o600
 PRIVATE_DIR_MODE = 0o700
@@ -50,6 +54,12 @@ def default_config() -> dict[str, Any]:
         "refresh_seconds": 5,
         "sources": [],
         "google_api_key": "",
+        # Cap on how many items one date-fix run will re-upload, so a first
+        # run cannot burn the whole 10k/day Photos API quota.
+        "datefix_max_items": 500,
+        "datefix_prepare_workers": 4,
+        "datefix_upload_transfers": 4,
+        "datefix_chunk_size": 8,
         "icon_x": 0,
         "icon_y": 0,
         "opacity_percent": 100,

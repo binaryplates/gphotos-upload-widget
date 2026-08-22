@@ -26,6 +26,10 @@ const INTROSPECTION_XML = `
     <method name="CredentialsTest"><arg type="s" direction="out"/></method>
     <method name="StorageQuota"><arg type="b" direction="in"/><arg type="s" direction="out"/></method>
     <method name="Reconcile"><arg type="s" direction="out"/></method>
+    <method name="DateFixScan"><arg type="s" direction="out"/></method>
+    <method name="DateFixApply"><arg type="s" direction="out"/></method>
+    <method name="DateFixStatus"><arg type="s" direction="out"/></method>
+    <method name="DateFixCancel"><arg type="s" direction="out"/></method>
   </interface>
 </node>`;
 
@@ -34,6 +38,7 @@ const SIGNATURES = {
     SourcesList: '', SourcesAdd: 'ss', SourcesRemove: 's', SourcesPause: 's',
     SourcesResume: 's', SourcesCancel: 's', CredentialsGet: '',
     CredentialsSet: 'sss', CredentialsTest: '', StorageQuota: 'b', Reconcile: '',
+    DateFixScan: '', DateFixApply: '', DateFixStatus: '', DateFixCancel: '',
 };
 
 export class DBusClient {

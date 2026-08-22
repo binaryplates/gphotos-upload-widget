@@ -142,3 +142,32 @@
   font-size: 14px;
   padding: 5px 5px 9px 5px;
 }
+
+.gphotos-upload-chip-disabled {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.gphotos-upload-datefix-box {
+  padding: 2px 5px 9px 5px;
+  spacing: 5px;
+}
+.gphotos-upload-datefix-summary {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+}
+.gphotos-upload-menu-scroll {
+  min-width: 259px;
+}
+.gphotos-upload-datefix-samples {
+  spacing: 2px;
+  padding: 2px 0;
+}
+.gphotos-upload-datefix-sample {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.gphotos-upload-datefix-note {
+  font-size: 13px;
+  color: #e8b86d;
+  padding: 3px 0;
+}

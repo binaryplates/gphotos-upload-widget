@@ -1,0 +1,14 @@
+[Unit]
+Description=Repair creation dates of media already in Google Photos
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__APP_DIR__/backend
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 __APP_DIR__/backend/gphotos_datefix_worker.py
+# A one-shot job: a failed run must not loop, it must surface in the panel.
+Restart=no
+TimeoutStopSec=45
+KillMode=mixed

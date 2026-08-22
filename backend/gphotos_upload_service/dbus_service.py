@@ -79,6 +79,18 @@ INTROSPECTION_XML = """
     <method name="Reconcile">
       <arg type="s" name="result" direction="out"/>
     </method>
+    <method name="DateFixScan">
+      <arg type="s" name="result" direction="out"/>
+    </method>
+    <method name="DateFixApply">
+      <arg type="s" name="result" direction="out"/>
+    </method>
+    <method name="DateFixStatus">
+      <arg type="s" name="result" direction="out"/>
+    </method>
+    <method name="DateFixCancel">
+      <arg type="s" name="result" direction="out"/>
+    </method>
   </interface>
 </node>
 """
@@ -100,6 +112,10 @@ _METHODS = {
     "CredentialsTest": (logic.credentials_test, []),
     "StorageQuota": (logic.storage_quota, ["force"]),
     "Reconcile": (logic.reconcile, []),
+    "DateFixScan": (logic.datefix_scan, []),
+    "DateFixApply": (logic.datefix_apply, []),
+    "DateFixStatus": (logic.datefix_status, []),
+    "DateFixCancel": (logic.datefix_cancel, []),
 }
 
 

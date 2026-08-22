@@ -19,6 +19,8 @@ from zoneinfo import ZoneInfo
 
 from gphotos_upload_common import (
     API_CACHE_PATH,
+    DATEFIX_REQUEST_PATH,
+    DATEFIX_STATUS_PATH,
     PRIVATE_FILE_MODE,
     UPLOAD_LOG_PATH,
     UPLOAD_STATUS_PATH,
@@ -36,6 +38,7 @@ from gphotos_upload_common import (
 )
 
 SERVICE = "rclone-gphotos.service"
+DATEFIX_SERVICE = "gphotos-datefix.service"
 DAILY_QUOTA = 10_000
 JORDAN = ZoneInfo("Asia/Amman")
 QUOTA_RESUME_HOUR, QUOTA_RESUME_MINUTE = 10, 45
@@ -76,10 +79,10 @@ def load_config() -> dict:
 
 # --------------------------------------------------------------- service ---
 
-def service_active() -> bool:
+def service_active(unit: str = SERVICE) -> bool:
     try:
         proc = subprocess.run(
-            ["systemctl", "--user", "is-active", SERVICE],
+            ["systemctl", "--user", "is-active", unit],
             capture_output=True, text=True, timeout=5, check=False,
         )
         return proc.stdout.strip() == "active"
@@ -87,11 +90,11 @@ def service_active() -> bool:
         return False
 
 
-def set_service(on: bool) -> tuple[bool, str]:
+def set_service(on: bool, unit: str = SERVICE) -> tuple[bool, str]:
     cmd = "start" if on else "stop"
     try:
         proc = subprocess.run(
-            ["systemctl", "--user", cmd, SERVICE],
+            ["systemctl", "--user", cmd, unit],
             capture_output=True, text=True, timeout=60 if not on else 20, check=False,
         )
     except subprocess.TimeoutExpired:
@@ -406,11 +409,65 @@ def fetch_drive_storage(*, force: bool = False) -> dict:
     return st
 
 
+# Trim rclone's nanosecond precision to what fromisoformat accepts on the
+# older Pythons this package still supports.
+_FRACTION_RE = re.compile(r"(\.\d{6})\d+")
+
+
+def _read_gphotos_token() -> dict:
+    try:
+        proc = subprocess.run(["rclone", "config", "dump"], capture_output=True, text=True, timeout=10, check=False)
+        dump = json.loads(proc.stdout or "{}")
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        return {}
+    raw = (dump.get("gphotos") or {}).get("token") or {}
+    try:
+        token = json.loads(raw) if isinstance(raw, str) else raw
+    except json.JSONDecodeError:
+        return {}
+    return token if isinstance(token, dict) else {}
+
+
+def token_expired(token: dict, *, now: datetime | None = None) -> bool:
+    """True when the cached access token is spent (or about to be).
+
+    A minute of slack keeps us from handing out a token that dies mid-call.
+    """
+    expiry = str(token.get("expiry") or "")
+    if not expiry:
+        return False
+    try:
+        when = datetime.fromisoformat(_FRACTION_RE.sub(r"\1", expiry))
+    except ValueError:
+        return False
+    reference = now or datetime.now(when.tzinfo)
+    return when <= reference + timedelta(seconds=60)
+
+
+def _refresh_gphotos_token() -> None:
+    """Make rclone mint a fresh access token.
+
+    rclone refreshes on use and writes the result back to rclone.conf, so a
+    remote call doubles as a refresh. It has to be a path that really hits
+    the API — listing `gphotos:` alone only prints rclone's static virtual
+    directories and refreshes nothing, so use `gphotos:album`. Without this,
+    anything reading the token straight out of the config 401s as soon as
+    the cached one expires, which it does roughly hourly.
+    """
+    try:
+        subprocess.run(
+            ["rclone", "lsd", "gphotos:album", "--max-depth", "1", "--checkers", "1"],
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
 def _gphotos_access_token() -> str:
-    proc = subprocess.run(["rclone", "config", "dump"], capture_output=True, text=True, timeout=10, check=False)
-    dump = json.loads(proc.stdout or "{}")
-    raw = dump.get("gphotos", {}).get("token") or {}
-    token = json.loads(raw) if isinstance(raw, str) else raw
+    token = _read_gphotos_token()
+    if not token.get("access_token") or token_expired(token):
+        _refresh_gphotos_token()
+        token = _read_gphotos_token()
     return str(token.get("access_token") or "")
 
 
@@ -502,15 +559,211 @@ def save_google_credentials(client_id: str, client_secret: str, api_key: str) ->
 
 def test_google_credentials() -> tuple[bool, str]:
     try:
+        # Must be a path that really reaches Google. Listing `gphotos:`
+        # alone only prints rclone's static virtual folders, so it succeeds
+        # even against a dead token — which made this test always pass.
         proc = subprocess.run(
-            ["rclone", "lsd", "gphotos:", "--max-depth", "1", "--checkers", "1"],
-            capture_output=True, text=True, timeout=20, check=False,
+            ["rclone", "lsd", "gphotos:album", "--max-depth", "1", "--checkers", "1"],
+            capture_output=True, text=True, timeout=60, check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return False, str(exc)
     if proc.returncode == 0:
         return True, "Google OAuth credentials are valid. API key is stored but not validated here."
     return False, (proc.stderr or proc.stdout or "Google OAuth test failed").strip()
+
+
+PHOTOS_API = "https://photoslibrary.googleapis.com/v1"
+API_TIMEOUT = 8
+# albums.batchRemoveMediaItems caps a single call at 50 ids.
+REMOVE_BATCH_SIZE = 50
+
+
+def _api_request(token: str, path: str, *, query: dict | None = None, payload: dict | None = None) -> dict:
+    """One authenticated Photos Library API call, GET unless payload is given."""
+    url = f"{PHOTOS_API}/{path.lstrip('/')}"
+    if query:
+        url += "?" + urlencode(query)
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    headers = {"Authorization": f"Bearer {token}"}
+    if data is not None:
+        headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(url, data=data, headers=headers)
+    with urllib.request.urlopen(req, timeout=API_TIMEOUT) as resp:
+        raw = resp.read().decode("utf-8", "replace")
+    return json.loads(raw) if raw.strip() else {}
+
+
+def list_albums(token: str, *, wanted: set[str] | None = None) -> dict[str, dict]:
+    """Album title -> {id, count, url} for albums this client created.
+
+    Stops early once every title in `wanted` has been seen, so the common
+    case of a handful of configured albums costs one page.
+    """
+    found: dict[str, dict] = {}
+    page_token = ""
+    for _ in range(20):
+        query = {"pageSize": "50"}
+        if page_token:
+            query["pageToken"] = page_token
+        body = _api_request(token, "albums", query=query)
+        for album in body.get("albums") or []:
+            title = str(album.get("title") or "")
+            found[title] = {
+                "id": str(album.get("id") or ""),
+                "count": int(album.get("mediaItemsCount") or 0),
+                "url": str(album.get("productUrl") or ""),
+            }
+        if wanted and wanted <= found.keys():
+            break
+        page_token = str(body.get("nextPageToken") or "")
+        if not page_token:
+            break
+    return found
+
+
+def _media_item(item: dict) -> dict:
+    return {
+        "id": str(item.get("id") or ""),
+        "filename": str(item.get("filename") or ""),
+        "baseUrl": str(item.get("baseUrl") or ""),
+        "mimeType": str(item.get("mimeType") or ""),
+        "productUrl": str(item.get("productUrl") or ""),
+        "creationTime": str((item.get("mediaMetadata") or {}).get("creationTime") or ""),
+    }
+
+
+def iter_album_items(token: str, album_id: str, *, limit: int = 0, should_stop=None):
+    """Yield album items page by page (up to 100 each).
+
+    Large albums (thousands of items) must report progress between pages or
+    the panel sits on a frozen "Scanning …" line for the whole fetch.
+    """
+    yielded = 0
+    page_token = ""
+    while True:
+        if should_stop and should_stop():
+            return
+        payload = {"albumId": album_id, "pageSize": 100}
+        if page_token:
+            payload["pageToken"] = page_token
+        body = _api_request(token, "mediaItems:search", payload=payload)
+        page: list[dict] = []
+        for item in body.get("mediaItems") or []:
+            page.append(_media_item(item))
+            yielded += 1
+            if limit and yielded >= limit:
+                if page:
+                    yield page
+                return
+        if page:
+            yield page
+        page_token = str(body.get("nextPageToken") or "")
+        if not page_token:
+            return
+
+
+def search_album_items(token: str, album_id: str, *, limit: int = 0, should_stop=None) -> list[dict]:
+    """Every media item in an album, newest first as the API returns them.
+
+    `should_stop` is checked between pages so a cancel does not have to wait
+    out a whole multi-thousand-item listing.
+    """
+    items: list[dict] = []
+    for page in iter_album_items(token, album_id, limit=limit, should_stop=should_stop):
+        items.extend(page)
+        if limit and len(items) >= limit:
+            return items[:limit]
+    return items
+
+
+def iter_library_items(token: str, *, limit: int = 0, should_stop=None):
+    """Yield library items page by page (up to 100 each).
+
+    Prefer album search for date-fix: with appcreateddata scope, mediaItems
+    list mostly returns empty pages (items this client did not create) while
+    still advancing nextPageToken across the user's entire library — minutes
+    of dead air for almost no candidates.
+    """
+    yielded = 0
+    page_token = ""
+    while True:
+        if should_stop and should_stop():
+            return
+        query = {"pageSize": "100"}
+        if page_token:
+            query["pageToken"] = page_token
+        body = _api_request(token, "mediaItems", query=query)
+        page: list[dict] = []
+        for item in body.get("mediaItems") or []:
+            page.append(_media_item(item))
+            yielded += 1
+            if limit and yielded >= limit:
+                if page:
+                    yield page
+                return
+        if page:
+            yield page
+        page_token = str(body.get("nextPageToken") or "")
+        if not page_token:
+            return
+
+
+def list_library_items(token: str, *, limit: int = 0, should_stop=None) -> list[dict]:
+    """Every media item this client uploaded, album or not."""
+    items: list[dict] = []
+    for page in iter_library_items(token, limit=limit, should_stop=should_stop):
+        items.extend(page)
+        if limit and len(items) >= limit:
+            return items[:limit]
+    return items
+
+
+def create_album(token: str, title: str) -> dict:
+    """Create an album and return {id, url}. The app owns what it creates."""
+    body = _api_request(token, "albums", payload={"album": {"title": title}})
+    return {"id": str(body.get("id") or ""), "url": str(body.get("productUrl") or "")}
+
+
+def find_or_create_album(token: str, title: str) -> dict:
+    """Reuse the album of this title if it already exists, else make one."""
+    try:
+        existing = list_albums(token, wanted={title}).get(title)
+    except (OSError, urllib.error.URLError, TimeoutError, ValueError):
+        existing = None
+    if existing and existing.get("id"):
+        return {"id": existing["id"], "url": existing.get("url", "")}
+    return create_album(token, title)
+
+
+def album_add_items(token: str, album_id: str, media_item_ids: list[str]) -> list[str]:
+    """File app-created items into an app-created album.
+
+    Returns the ids that landed, so a caller can avoid acting on a batch
+    that failed. Google Photos lets an item sit in several albums at once,
+    so this does not take it out of wherever it already is.
+    """
+    added: list[str] = []
+    for start in range(0, len(media_item_ids), REMOVE_BATCH_SIZE):
+        batch = media_item_ids[start:start + REMOVE_BATCH_SIZE]
+        _api_request(token, f"albums/{album_id}:batchAddMediaItems", payload={"mediaItemIds": batch})
+        added.extend(batch)
+    return added
+
+
+def album_remove_items(token: str, album_id: str, media_item_ids: list[str]) -> int:
+    """Remove items from an app-created album. Returns how many were removed.
+
+    This is the only removal the Library API offers — there is no
+    mediaItems.delete at any scope, so the item itself survives in the
+    user's timeline and has to be trashed by hand.
+    """
+    removed = 0
+    for start in range(0, len(media_item_ids), REMOVE_BATCH_SIZE):
+        batch = media_item_ids[start:start + REMOVE_BATCH_SIZE]
+        _api_request(token, f"albums/{album_id}:batchRemoveMediaItems", payload={"mediaItemIds": batch})
+        removed += len(batch)
+    return removed
 
 
 def fetch_album_counts(*, skip: bool, force: bool = False, live: bool = False, album_titles: list[str] | None = None) -> dict:
@@ -535,29 +788,9 @@ def fetch_album_counts(*, skip: bool, force: bool = False, live: bool = False, a
         token = _gphotos_access_token()
         if not token:
             return al
-        counts: dict[str, int] = {}
-        urls: dict[str, str] = {}
-        page_token = ""
-        for _ in range(20):
-            query = {"pageSize": "50"}
-            if page_token:
-                query["pageToken"] = page_token
-            req = urllib.request.Request(
-                "https://photoslibrary.googleapis.com/v1/albums?" + urlencode(query),
-                headers={"Authorization": f"Bearer {token}"},
-            )
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                body = json.loads(resp.read().decode("utf-8", "replace"))
-            for album in body.get("albums") or []:
-                title = str(album.get("title") or "")
-                counts[title] = int(album.get("mediaItemsCount") or 0)
-                if album.get("productUrl"):
-                    urls[title] = str(album["productUrl"])
-            if wanted <= counts.keys():
-                break
-            page_token = str(body.get("nextPageToken") or "")
-            if not page_token:
-                break
+        albums = list_albums(token, wanted=wanted)
+        counts = {title: entry["count"] for title, entry in albums.items()}
+        urls = {title: entry["url"] for title, entry in albums.items()}
         al = {
             "ts": now, "fetched": True, "ok": True,
             "counts": {title: counts.get(title) for title in wanted},
@@ -773,3 +1006,83 @@ def storage_quota(force: bool) -> dict:
 def reconcile() -> dict:
     cfg = load_config()
     return gather_snapshot(cfg.get("sources", []), force=True, reconcile_remote=True)
+
+
+# --------------------------------------------------------------- datefix ---
+# The scan/apply work is slow (network, exiftool, re-upload), so it runs in
+# its own systemd --user unit exactly like the uploader does; these calls
+# only start/stop that unit and read the status file it writes.
+
+def _datefix_state() -> dict:
+    state = read_json(DATEFIX_STATUS_PATH, {})
+    return state if isinstance(state, dict) else {}
+
+
+def _start_datefix(mode: str) -> dict:
+    if service_active():
+        return {"ok": False, "error": "An upload is running — stop it before fixing dates."}
+    if service_active(DATEFIX_SERVICE):
+        return {"ok": False, "error": "A date fix is already running."}
+    # Deliberately independent of the configured source folders: this
+    # repairs what is already in Google Photos, which has nothing to do with
+    # which local folders are set up to upload. The worker discovers the
+    # albums from the account itself.
+    cfg = load_config()
+    request = {
+        "mode": mode,
+        "requested_at": datetime.now().isoformat(timespec="seconds"),
+        "max_items": int(cfg.get("datefix_max_items") or 500),
+        "prepare_workers": int(cfg.get("datefix_prepare_workers") or 4),
+        "upload_transfers": int(cfg.get("datefix_upload_transfers") or 4),
+        "chunk_size": int(cfg.get("datefix_chunk_size") or 8),
+    }
+    if mode == "apply":
+        state = _datefix_state()
+        candidates = state.get("candidates") or []
+        if state.get("mode") != "scan" or not state.get("finished") or not candidates:
+            return {"ok": False, "error": "Run a scan first — there is nothing to apply."}
+        request["candidates"] = candidates
+    try:
+        atomic_write_json(DATEFIX_REQUEST_PATH, request)
+    except OSError as exc:
+        return {"ok": False, "error": str(exc)}
+    ok, error = set_service(True, DATEFIX_SERVICE)
+    if not ok:
+        return {"ok": False, "error": error}
+    return {"ok": True, "started": True, "mode": mode}
+
+
+def datefix_scan() -> dict:
+    return _start_datefix("scan")
+
+
+def datefix_apply() -> dict:
+    return _start_datefix("apply")
+
+
+DATEFIX_STATUS_SAMPLE = 50
+
+
+def datefix_status() -> dict:
+    """The panel's view of the run.
+
+    The full candidate list lives in the status file for `apply` to pick up;
+    the panel only ever renders a handful, so send a sample and a count
+    rather than megabytes of JSON on every poll. `ok` here is transport
+    success — a failed run reports itself through `error`.
+    """
+    state = _datefix_state()
+    candidates = state.get("candidates") or []
+    count = state.get("candidate_count")
+    if not isinstance(count, int):
+        count = len(candidates)
+    state["candidate_count"] = count
+    state["candidates"] = candidates[:DATEFIX_STATUS_SAMPLE]
+    state["ok"] = True
+    state["running"] = service_active(DATEFIX_SERVICE)
+    return state
+
+
+def datefix_cancel() -> dict:
+    ok, error = set_service(False, DATEFIX_SERVICE)
+    return {"ok": ok, "error": error}

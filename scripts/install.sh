@@ -12,6 +12,7 @@ UUID="gphotos-upload@blazorplate.net"
 EXT_SRC="$REPO_ROOT/$UUID"
 EXT_DEST="$HOME/.local/share/gnome-shell/extensions/$UUID"
 SERVICE_DEST="$HOME/.config/systemd/user/rclone-gphotos.service"
+DATEFIX_DEST="$HOME/.config/systemd/user/gphotos-datefix.service"
 DBUS_SERVICES_DIR="$HOME/.local/share/dbus-1/services"
 
 if [[ $EUID -eq 0 ]]; then
@@ -23,18 +24,20 @@ echo "== Step 1/4: installing extension files =="
 rm -rf "$EXT_DEST"
 mkdir -p "$(dirname "$EXT_DEST")"
 cp -a "$EXT_SRC" "$EXT_DEST"
+cp -a "$REPO_ROOT/backend" "$EXT_DEST/backend"
 glib-compile-schemas "$EXT_DEST/schemas"
 
 echo "== Step 2/4: installing the gphotos-upload-service D-Bus service =="
-VENV_DIR="$HOME/.local/share/gphotos-upload-widget/venv"
+VENV_DIR="$REPO_ROOT/venv"
 python3 -m venv --system-site-packages "$VENV_DIR"
 "$VENV_DIR/bin/pip" install --upgrade "$REPO_ROOT/backend"
 mkdir -p "$DBUS_SERVICES_DIR"
 sed "s#__VENV_DIR__#$VENV_DIR#g" "$REPO_ROOT/backend/net.blazorplate.GPhotosUpload.service" > "$DBUS_SERVICES_DIR/net.blazorplate.GPhotosUpload.service"
 
-echo "== Step 3/4: installing the rclone-gphotos systemd user service =="
+echo "== Step 3/4: installing the systemd user services =="
 mkdir -p "$(dirname "$SERVICE_DEST")"
 sed "s#__APP_DIR__#$REPO_ROOT#g" "$SCRIPT_DIR/rclone-gphotos.service" > "$SERVICE_DEST"
+sed "s#__APP_DIR__#$REPO_ROOT#g" "$SCRIPT_DIR/gphotos-datefix.service" > "$DATEFIX_DEST"
 systemctl --user daemon-reload
 systemctl --user enable rclone-gphotos.service >/dev/null
 
